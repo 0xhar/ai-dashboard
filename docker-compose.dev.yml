@@ -1,0 +1,26 @@
+# Development overrides - use with: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# For local dev, just run: docker compose up postgres redis
+# Then use pnpm dev for the app and pnpm worker:dev for the worker
+services:
+  app:
+    build:
+      target: deps
+    command: pnpm dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - '3100:3000'
+    environment:
+      NODE_ENV: development
+
+  worker:
+    build:
+      target: deps
+    command: pnpm worker:dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+      WORKER_MODE: 'true'
