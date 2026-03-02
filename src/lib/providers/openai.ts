@@ -54,23 +54,26 @@ export class OpenAIAdapter implements ProviderAdapter {
       }
 
       const data = await res.json();
-      const records: NormalizedUsageRecord[] = (data.data || []).map(
-        (bucket: Record<string, unknown>) => ({
-          orgId,
-          connectionId,
-          provider: 'openai' as const,
-          source: 'provider' as const,
-          bucketStart: new Date((bucket.start_time as number) * 1000),
-          bucketEnd: new Date((bucket.end_time as number) * 1000),
-          bucketWidth: '1h' as const,
-          model: (bucket.model as string) || 'unknown',
-          providerProjectId: bucket.project_id as string | undefined,
-          providerApiKeyId: bucket.api_key_id as string | undefined,
-          inputTokens: Number(bucket.input_tokens || 0),
-          outputTokens: Number(bucket.output_tokens || 0),
-          cachedInputTokens: Number(bucket.input_cached_tokens || 0),
-          totalRequests: Number(bucket.num_model_requests || 0),
-        })
+      const records: NormalizedUsageRecord[] = (data.data || []).flatMap(
+        (bucket: Record<string, unknown>) => {
+          const results = (bucket.results || []) as Record<string, unknown>[];
+          return results.map((result) => ({
+            orgId,
+            connectionId,
+            provider: 'openai' as const,
+            source: 'provider' as const,
+            bucketStart: new Date((bucket.start_time as number) * 1000),
+            bucketEnd: new Date((bucket.end_time as number) * 1000),
+            bucketWidth: '1h' as const,
+            model: (result.model as string) || 'unknown',
+            providerProjectId: result.project_id as string | undefined,
+            providerApiKeyId: result.api_key_id as string | undefined,
+            inputTokens: Number(result.input_tokens || 0),
+            outputTokens: Number(result.output_tokens || 0),
+            cachedInputTokens: Number(result.input_cached_tokens || 0),
+            totalRequests: Number(result.num_model_requests || 0),
+          }));
+        }
       );
 
       if (records.length > 0) yield records;
@@ -105,23 +108,29 @@ export class OpenAIAdapter implements ProviderAdapter {
       }
 
       const data = await res.json();
-      const records: NormalizedCostRecord[] = (data.data || []).map(
+      const records: NormalizedCostRecord[] = (data.data || []).flatMap(
         (bucket: Record<string, unknown>) => {
-          const amount = Number(bucket.amount || 0);
-          return {
-            orgId,
-            connectionId,
-            provider: 'openai' as const,
-            source: 'provider' as const,
-            bucketDate: new Date((bucket.start_time as number) * 1000)
-              .toISOString()
-              .split('T')[0],
-            model: (bucket.model as string) || 'all',
-            providerProjectId: bucket.project_id as string | undefined,
-            costCategory: bucket.line_item as string | undefined,
-            amountCents: Math.round(amount * 100),
-            currency: 'USD',
-          };
+          const results = (bucket.results || []) as Record<string, unknown>[];
+          return results.map((result) => {
+            const amountObj = result.amount as
+              | Record<string, unknown>
+              | undefined;
+            const amount = Number(amountObj?.value || 0);
+            return {
+              orgId,
+              connectionId,
+              provider: 'openai' as const,
+              source: 'provider' as const,
+              bucketDate: new Date((bucket.start_time as number) * 1000)
+                .toISOString()
+                .split('T')[0],
+              model: (result.model as string) || 'all',
+              providerProjectId: result.project_id as string | undefined,
+              costCategory: result.line_item as string | undefined,
+              amountCents: Math.round(amount * 100),
+              currency: 'USD',
+            };
+          });
         }
       );
 

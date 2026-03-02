@@ -9,16 +9,44 @@ import type {
 import { logger } from '@/lib/logger';
 
 export class AWSBedrockAdapter implements ProviderAdapter {
-  private getClients(credentials: Record<string, string>) {
-    // Lazy import AWS SDK to avoid bundling in client
-    const config = {
+  private getBaseConfig(credentials: Record<string, string>) {
+    return {
       region: credentials.region || 'us-east-1',
       credentials: {
         accessKeyId: credentials.accessKeyId,
         secretAccessKey: credentials.secretAccessKey,
       },
     };
-    return config;
+  }
+
+  private async getClients(credentials: Record<string, string>) {
+    const baseConfig = this.getBaseConfig(credentials);
+
+    // Support optional cross-account assume-role via STS
+    if (credentials.roleArn) {
+      const { STSClient, AssumeRoleCommand } =
+        await import('@aws-sdk/client-sts');
+      const sts = new STSClient(baseConfig);
+      const assumed = await sts.send(
+        new AssumeRoleCommand({
+          RoleArn: credentials.roleArn,
+          RoleSessionName: 'ai-finops-dashboard',
+          DurationSeconds: 3600,
+        })
+      );
+      if (assumed.Credentials) {
+        return {
+          region: credentials.region || 'us-east-1',
+          credentials: {
+            accessKeyId: assumed.Credentials.AccessKeyId!,
+            secretAccessKey: assumed.Credentials.SecretAccessKey!,
+            sessionToken: assumed.Credentials.SessionToken,
+          },
+        };
+      }
+    }
+
+    return baseConfig;
   }
 
   async testCredentials(
@@ -27,7 +55,7 @@ export class AWSBedrockAdapter implements ProviderAdapter {
     try {
       const { STSClient, GetCallerIdentityCommand } =
         await import('@aws-sdk/client-sts');
-      const client = new STSClient(this.getClients(credentials));
+      const client = new STSClient(this.getBaseConfig(credentials));
       await client.send(new GetCallerIdentityCommand({}));
       return { success: true };
     } catch (err) {
@@ -44,7 +72,8 @@ export class AWSBedrockAdapter implements ProviderAdapter {
     try {
       const { CloudWatchClient, GetMetricDataCommand } =
         await import('@aws-sdk/client-cloudwatch');
-      const client = new CloudWatchClient(this.getClients(credentials));
+      const config = await this.getClients(credentials);
+      const client = new CloudWatchClient(config);
 
       // Fetch InputTokenCount and OutputTokenCount per model
       for (const metricName of ['InputTokenCount', 'OutputTokenCount']) {
@@ -118,8 +147,9 @@ export class AWSBedrockAdapter implements ProviderAdapter {
       const { CostExplorerClient, GetCostAndUsageCommand } =
         await import('@aws-sdk/client-cost-explorer');
       // Cost Explorer must be called against us-east-1
+      const config = await this.getClients(credentials);
       const client = new CostExplorerClient({
-        ...this.getClients(credentials),
+        ...config,
         region: 'us-east-1',
       });
 
@@ -178,7 +208,8 @@ export class AWSBedrockAdapter implements ProviderAdapter {
     try {
       const { BedrockClient, ListInferenceProfilesCommand } =
         await import('@aws-sdk/client-bedrock');
-      const client = new BedrockClient(this.getClients(credentials));
+      const config = await this.getClients(credentials);
+      const client = new BedrockClient(config);
       const result = await client.send(new ListInferenceProfilesCommand({}));
 
       return (result.inferenceProfileSummaries || []).map((p) => ({

@@ -1,0 +1,17 @@
+{
+  "data": [
+    {
+      "date": "2024-03-01",
+      "workspace_id": "ws_abc123",
+      "description": "claude-sonnet-4-20250514",
+      "amount": "1542"
+    },
+    {
+      "date": "2024-03-01",
+      "workspace_id": "ws_def456",
+      "description": "claude-haiku-3-20240307",
+      "amount": "325.50"
+    }
+  ],
+  "next_page": null
+}

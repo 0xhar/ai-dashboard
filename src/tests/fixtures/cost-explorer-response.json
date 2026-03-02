@@ -1,0 +1,49 @@
+{
+  "ResultsByTime": [
+    {
+      "TimePeriod": {
+        "Start": "2024-03-01",
+        "End": "2024-03-02"
+      },
+      "Groups": [
+        {
+          "Keys": ["USE1-Bedrock:anthropic.claude-3-sonnet"],
+          "Metrics": {
+            "UnblendedCost": {
+              "Amount": "15.4567",
+              "Unit": "USD"
+            }
+          }
+        },
+        {
+          "Keys": ["USE1-Bedrock:amazon.titan-text-express"],
+          "Metrics": {
+            "UnblendedCost": {
+              "Amount": "2.123",
+              "Unit": "USD"
+            }
+          }
+        }
+      ],
+      "Estimated": true
+    },
+    {
+      "TimePeriod": {
+        "Start": "2024-03-02",
+        "End": "2024-03-03"
+      },
+      "Groups": [
+        {
+          "Keys": ["USE1-Bedrock:anthropic.claude-3-sonnet"],
+          "Metrics": {
+            "UnblendedCost": {
+              "Amount": "0.00",
+              "Unit": "USD"
+            }
+          }
+        }
+      ],
+      "Estimated": false
+    }
+  ]
+}

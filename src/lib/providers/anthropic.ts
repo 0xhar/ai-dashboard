@@ -121,7 +121,9 @@ export class AnthropicAdapter implements ProviderAdapter {
       }
 
       const data = await res.json();
-      // Note: Anthropic returns costs as decimal-string cents
+      // Note: Anthropic returns costs as decimal-string cents.
+      // WARNING: Priority Tier costs are NOT included in the cost report.
+      // See: https://docs.anthropic.com/en/docs/about-claude/priority-tiers
       const records: NormalizedCostRecord[] = (data.data || []).map(
         (item: Record<string, unknown>) => ({
           orgId,

@@ -15,10 +15,10 @@ export const POST = withErrorHandler(
 
     // Enqueue sync jobs using URL string (avoids ioredis version mismatch)
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-    const usageQueue = new Queue('sync:usage', {
+    const usageQueue = new Queue('sync-usage', {
       connection: { url: redisUrl },
     });
-    const costQueue = new Queue('sync:cost', { connection: { url: redisUrl } });
+    const costQueue = new Queue('sync-cost', { connection: { url: redisUrl } });
 
     await usageQueue.add('sync-usage', { connectionId });
     await costQueue.add('sync-cost', { connectionId });

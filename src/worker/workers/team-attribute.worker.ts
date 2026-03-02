@@ -13,7 +13,7 @@ const log = createLogger({ service: 'worker' });
 
 export function createTeamAttributeWorker(connection: ConnectionOptions) {
   return new Worker(
-    'team:attribute',
+    'team-attribute',
     async (job: Job) => {
       const { connectionId, teamId, orgId } = job.data;
 

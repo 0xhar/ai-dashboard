@@ -13,10 +13,10 @@ const log = createLogger({ service: 'worker' });
 
 export function createSyncCostWorker(connection: ConnectionOptions) {
   return new Worker(
-    'sync:cost',
+    'sync-cost',
     async (job: Job) => {
       if (job.data.type === 'fan-out') {
-        const queue = new Queue('sync:cost', { connection });
+        const queue = new Queue('sync-cost', { connection });
         await fanOutSyncJobs(queue, 'cost');
         await queue.close();
         return;

@@ -28,7 +28,7 @@ function getPeriodStart(period: string): Date {
 
 export function createBudgetCheckWorker(connection: ConnectionOptions) {
   return new Worker(
-    'budget:check',
+    'budget-check',
     async () => {
       log.info('Running budget check');
 

@@ -15,11 +15,11 @@ const log = createLogger({ service: 'worker' });
 
 export function createSyncUsageWorker(connection: ConnectionOptions) {
   return new Worker(
-    'sync:usage',
+    'sync-usage',
     async (job: Job) => {
       // Fan-out job
       if (job.data.type === 'fan-out') {
-        const queue = new Queue('sync:usage', { connection });
+        const queue = new Queue('sync-usage', { connection });
         await fanOutSyncJobs(queue, 'usage');
         await queue.close();
         return;
@@ -143,7 +143,7 @@ export function createSyncUsageWorker(connection: ConnectionOptions) {
           .where(eq(syncJobs.id, syncJob.id));
 
         // Enqueue team attribution
-        const attrQueue = new Queue('team:attribute', { connection });
+        const attrQueue = new Queue('team-attribute', { connection });
         await attrQueue.add('attribute', { connectionId });
         await attrQueue.close();
 

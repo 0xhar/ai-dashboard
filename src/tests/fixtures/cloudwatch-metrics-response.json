@@ -1,0 +1,16 @@
+{
+  "MetricDataResults": [
+    {
+      "Id": "inputtokencount",
+      "Label": "InputTokenCount",
+      "Timestamps": [
+        "2024-03-01T10:00:00.000Z",
+        "2024-03-01T11:00:00.000Z",
+        "2024-03-01T12:00:00.000Z"
+      ],
+      "Values": [15000, 22000, 8500],
+      "StatusCode": "Complete"
+    }
+  ],
+  "NextToken": null
+}

@@ -2,7 +2,7 @@ import { Queue } from 'bullmq';
 import type { ConnectionOptions } from 'bullmq';
 
 export function createQueues(connection: ConnectionOptions) {
-  const usageQueue = new Queue('sync:usage', {
+  const usageQueue = new Queue('sync-usage', {
     connection,
     defaultJobOptions: {
       attempts: 3,
@@ -12,7 +12,7 @@ export function createQueues(connection: ConnectionOptions) {
     },
   });
 
-  const costQueue = new Queue('sync:cost', {
+  const costQueue = new Queue('sync-cost', {
     connection,
     defaultJobOptions: {
       attempts: 3,
@@ -22,7 +22,7 @@ export function createQueues(connection: ConnectionOptions) {
     },
   });
 
-  const budgetQueue = new Queue('budget:check', {
+  const budgetQueue = new Queue('budget-check', {
     connection,
     defaultJobOptions: {
       attempts: 2,
@@ -30,7 +30,7 @@ export function createQueues(connection: ConnectionOptions) {
     },
   });
 
-  const attributeQueue = new Queue('team:attribute', {
+  const attributeQueue = new Queue('team-attribute', {
     connection,
     defaultJobOptions: {
       attempts: 2,

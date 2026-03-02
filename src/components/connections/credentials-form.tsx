@@ -71,6 +71,17 @@ export function CredentialsForm({ provider }: CredentialsFormProps) {
               defaultValue="us-east-1"
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="roleArn">Role ARN (optional)</Label>
+            <Input
+              id="roleArn"
+              name="roleArn"
+              placeholder="arn:aws:iam::123456789:role/BedrockReadOnly"
+            />
+            <p className="text-xs text-[var(--muted-foreground)]">
+              For cross-account access via STS AssumeRole
+            </p>
+          </div>
         </div>
       );
     case 'litellm':
