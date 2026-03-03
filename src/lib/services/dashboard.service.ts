@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { costRecords } from '@/lib/db/schema';
-import { eq, and, gte, lte, sql, sum, desc } from 'drizzle-orm';
+import { eq, and, gte, lte, sql, sum, desc, count, like } from 'drizzle-orm';
 import type { DatePeriod, Granularity, GroupBy } from '@/lib/types';
 
 function getPeriodDates(period: DatePeriod): { start: string; end: string } {
@@ -216,4 +216,78 @@ export async function getTopModels(
     .groupBy(costRecords.model, costRecords.provider)
     .orderBy(desc(sum(costRecords.amountCents)))
     .limit(limit);
+}
+
+export async function getConnectionRecords(
+  orgId: string,
+  connectionId: string,
+  options: {
+    model?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    pageSize?: number;
+  } = {}
+) {
+  const { model, startDate, endDate, page = 1, pageSize = 20 } = options;
+
+  const conditions = [
+    eq(costRecords.orgId, orgId),
+    eq(costRecords.connectionId, connectionId),
+  ];
+
+  if (model) {
+    conditions.push(like(costRecords.model, `%${model}%`));
+  }
+  if (startDate) {
+    conditions.push(gte(costRecords.bucketDate, startDate));
+  }
+  if (endDate) {
+    conditions.push(lte(costRecords.bucketDate, endDate));
+  }
+
+  const where = and(...conditions);
+
+  const [countResult] = await db
+    .select({ total: count() })
+    .from(costRecords)
+    .where(where);
+
+  const rows = await db
+    .select({
+      id: costRecords.id,
+      bucketDate: costRecords.bucketDate,
+      model: costRecords.model,
+      provider: costRecords.provider,
+      amountCents: costRecords.amountCents,
+      providerProjectId: costRecords.providerProjectId,
+      providerWorkspaceId: costRecords.providerWorkspaceId,
+    })
+    .from(costRecords)
+    .where(where)
+    .orderBy(desc(costRecords.bucketDate), desc(costRecords.amountCents))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
+
+  // Get distinct models for filter dropdown
+  const models = await db
+    .select({ model: costRecords.model })
+    .from(costRecords)
+    .where(
+      and(
+        eq(costRecords.orgId, orgId),
+        eq(costRecords.connectionId, connectionId)
+      )
+    )
+    .groupBy(costRecords.model)
+    .orderBy(costRecords.model);
+
+  return {
+    rows,
+    total: countResult?.total || 0,
+    page,
+    pageSize,
+    totalPages: Math.ceil((countResult?.total || 0) / pageSize),
+    availableModels: models.map((m) => m.model),
+  };
 }

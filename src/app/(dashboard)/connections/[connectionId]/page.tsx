@@ -1,7 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useConnection, useSyncJobs } from '@/lib/hooks/use-connections';
+import {
+  useConnection,
+  useSyncJobs,
+  useConnectionRecords,
+} from '@/lib/hooks/use-connections';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -18,12 +23,27 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, RefreshCw, Plug } from 'lucide-react';
+import {
+  ArrowLeft,
+  RefreshCw,
+  Plug,
+  ChevronLeft,
+  ChevronRight,
+  KeyRound,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { PROVIDER_DISPLAY_NAMES } from '@/lib/constants';
-import { formatRelativeTime } from '@/lib/utils';
+import { formatCurrency, formatRelativeTime } from '@/lib/utils';
 import type { ProviderType } from '@/lib/types';
 
 function statusBadgeVariant(
@@ -75,17 +95,52 @@ interface SyncJobData {
   createdAt: string;
 }
 
+interface CostRow {
+  id: number;
+  bucketDate: string;
+  model: string;
+  provider: string;
+  amountCents: number;
+  providerProjectId: string | null;
+  providerWorkspaceId: string | null;
+}
+
+interface RecordsResponse {
+  rows: CostRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  availableModels: string[];
+}
+
 export default function ConnectionDetailPage() {
   const params = useParams();
   const router = useRouter();
   const connectionId = params.connectionId as string;
 
+  // Filters state
+  const [modelFilter, setModelFilter] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [page, setPage] = useState(1);
+
   const { data: connection, isLoading: connLoading } =
     useConnection(connectionId);
   const { data: syncJobs, isLoading: jobsLoading } = useSyncJobs(connectionId);
+  const { data: recordsData, isLoading: recordsLoading } = useConnectionRecords(
+    connectionId,
+    {
+      model: modelFilter || undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+      page,
+    }
+  );
 
   const conn = connection as ConnectionData | undefined;
   const jobs = (syncJobs || []) as SyncJobData[];
+  const records = recordsData as RecordsResponse | undefined;
 
   function handleSync() {
     fetch(`/api/v1/connections/${connectionId}/sync`, { method: 'POST' })
@@ -104,6 +159,10 @@ export default function ConnectionDetailPage() {
         }
       })
       .catch(() => toast.error('Test request failed'));
+  }
+
+  function handleReenterCredentials() {
+    router.push(`/connections?reconfigure=${connectionId}`);
   }
 
   if (connLoading) {
@@ -144,6 +203,7 @@ export default function ConnectionDetailPage() {
         </Button>
       </div>
 
+      {/* Connection Info Card */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -154,6 +214,16 @@ export default function ConnectionDetailPage() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
+              {conn.status === 'error' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReenterCredentials}
+                >
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  Re-enter Credentials
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={handleTest}>
                 <Plug className="mr-2 h-4 w-4" />
                 Test
@@ -207,6 +277,164 @@ export default function ConnectionDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Cost Records Data Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Cost Records</CardTitle>
+          <CardDescription>
+            Cost data synced from this connection
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Filters */}
+          <div className="mb-4 flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <label className="text-sm text-[var(--muted-foreground)]">
+                Model
+              </label>
+              <Select
+                value={modelFilter}
+                onValueChange={(v) => {
+                  setModelFilter(v === 'all' ? '' : v);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="All models" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All models</SelectItem>
+                  {(records?.availableModels || []).map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm text-[var(--muted-foreground)]">
+                Start date
+              </label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setPage(1);
+                }}
+                className="w-[160px]"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm text-[var(--muted-foreground)]">
+                End date
+              </label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setPage(1);
+                }}
+                className="w-[160px]"
+              />
+            </div>
+            {(modelFilter || startDate || endDate) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setModelFilter('');
+                  setStartDate('');
+                  setEndDate('');
+                  setPage(1);
+                }}
+              >
+                Clear filters
+              </Button>
+            )}
+          </div>
+
+          {recordsLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
+          ) : !records || records.rows.length === 0 ? (
+            <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
+              No cost records found
+              {modelFilter || startDate || endDate
+                ? ' for the selected filters'
+                : '. Sync data to see records here.'}
+            </p>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Model</TableHead>
+                    <TableHead>Project / Workspace</TableHead>
+                    <TableHead className="text-right">Cost</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {records.rows.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.bucketDate}</TableCell>
+                      <TableCell className="font-medium">{row.model}</TableCell>
+                      <TableCell className="text-[var(--muted-foreground)]">
+                        {row.providerProjectId ||
+                          row.providerWorkspaceId ||
+                          '-'}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(row.amountCents)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              {/* Pagination */}
+              {records.totalPages > 1 && (
+                <div className="mt-4 flex items-center justify-between">
+                  <p className="text-sm text-[var(--muted-foreground)]">
+                    Showing {(records.page - 1) * records.pageSize + 1}-
+                    {Math.min(records.page * records.pageSize, records.total)}{' '}
+                    of {records.total} records
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm">
+                      Page {records.page} of {records.totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page >= records.totalPages}
+                      onClick={() => setPage((p) => p + 1)}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Sync History */}
       <Card>
         <CardHeader>
           <CardTitle>Sync History</CardTitle>

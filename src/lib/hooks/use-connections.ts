@@ -62,3 +62,30 @@ export function useSyncJobs(connectionId: string) {
     refetchInterval: 30_000,
   });
 }
+
+export function useConnectionRecords(
+  connectionId: string,
+  filters: {
+    model?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+  } = {}
+) {
+  const params = new URLSearchParams();
+  if (filters.model) params.set('model', filters.model);
+  if (filters.startDate) params.set('startDate', filters.startDate);
+  if (filters.endDate) params.set('endDate', filters.endDate);
+  if (filters.page) params.set('page', String(filters.page));
+
+  const qs = params.toString();
+  return useQuery({
+    queryKey: ['connection-records', connectionId, filters],
+    queryFn: () =>
+      apiFetch(
+        `/api/v1/connections/${connectionId}/records${qs ? `?${qs}` : ''}`
+      ),
+    enabled: !!connectionId,
+    staleTime: 30_000,
+  });
+}
