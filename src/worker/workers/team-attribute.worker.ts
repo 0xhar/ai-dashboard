@@ -19,6 +19,20 @@ export function createTeamAttributeWorker(connection: ConnectionOptions) {
 
       log.info({ connectionId, teamId, orgId }, 'Starting team attribution');
 
+      // When re-attributing for a specific team (after mapping change),
+      // first clear existing team_id for this team so we re-apply from scratch
+      if (teamId && !connectionId) {
+        await db
+          .update(usageRecords)
+          .set({ teamId: null })
+          .where(eq(usageRecords.teamId, teamId));
+
+        await db
+          .update(costRecords)
+          .set({ teamId: null })
+          .where(eq(costRecords.teamId, teamId));
+      }
+
       // Get all mappings for the relevant scope
       const mappings = await db
         .select()
@@ -31,27 +45,24 @@ export function createTeamAttributeWorker(connection: ConnectionOptions) {
               : sql`1=1`
         );
 
-      let attributed = 0;
-
       for (const mapping of mappings) {
-        // Build WHERE condition based on entity type
-        const entityConditions = [];
+        // Build WHERE condition based on entity type for usage records
+        const usageConditions = [];
         if (mapping.providerEntityType === 'project') {
-          entityConditions.push(
+          usageConditions.push(
             eq(usageRecords.providerProjectId, mapping.providerEntityId)
           );
         } else if (mapping.providerEntityType === 'workspace') {
-          entityConditions.push(
+          usageConditions.push(
             eq(usageRecords.providerWorkspaceId, mapping.providerEntityId)
           );
         } else if (mapping.providerEntityType === 'api_key') {
-          entityConditions.push(
+          usageConditions.push(
             eq(usageRecords.providerApiKeyId, mapping.providerEntityId)
           );
         }
 
-        if (entityConditions.length > 0) {
-          // Update usage records
+        if (usageConditions.length > 0) {
           await db
             .update(usageRecords)
             .set({ teamId: mapping.teamId })
@@ -59,40 +70,41 @@ export function createTeamAttributeWorker(connection: ConnectionOptions) {
               and(
                 eq(usageRecords.connectionId, mapping.connectionId),
                 isNull(usageRecords.teamId),
-                ...entityConditions
+                ...usageConditions
               )
             );
-
-          // Update cost records
-          const costConditions = [];
-          if (mapping.providerEntityType === 'project') {
-            costConditions.push(
-              eq(costRecords.providerProjectId, mapping.providerEntityId)
-            );
-          } else if (mapping.providerEntityType === 'workspace') {
-            costConditions.push(
-              eq(costRecords.providerWorkspaceId, mapping.providerEntityId)
-            );
-          }
-
-          if (costConditions.length > 0) {
-            await db
-              .update(costRecords)
-              .set({ teamId: mapping.teamId })
-              .where(
-                and(
-                  eq(costRecords.connectionId, mapping.connectionId),
-                  isNull(costRecords.teamId),
-                  ...costConditions
-                )
-              );
-          }
         }
 
-        attributed++;
+        // Build WHERE condition for cost records
+        const costConditions = [];
+        if (mapping.providerEntityType === 'project') {
+          costConditions.push(
+            eq(costRecords.providerProjectId, mapping.providerEntityId)
+          );
+        } else if (mapping.providerEntityType === 'workspace') {
+          costConditions.push(
+            eq(costRecords.providerWorkspaceId, mapping.providerEntityId)
+          );
+        }
+
+        if (costConditions.length > 0) {
+          await db
+            .update(costRecords)
+            .set({ teamId: mapping.teamId })
+            .where(
+              and(
+                eq(costRecords.connectionId, mapping.connectionId),
+                isNull(costRecords.teamId),
+                ...costConditions
+              )
+            );
+        }
       }
 
-      log.info({ mappingsProcessed: attributed }, 'Team attribution completed');
+      log.info(
+        { mappingsProcessed: mappings.length },
+        'Team attribution completed'
+      );
     },
     { connection, concurrency: 2 }
   );

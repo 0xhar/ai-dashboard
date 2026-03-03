@@ -71,6 +71,67 @@ export function useTeamMappings(teamId: string) {
   });
 }
 
+export function useAddTeamMember(teamId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      apiFetch(`/api/v1/teams/${teamId}/members`, {
+        method: 'POST',
+        body: JSON.stringify({ userId }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teams', teamId] });
+    },
+  });
+}
+
+export function useRemoveTeamMember(teamId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      apiFetch(`/api/v1/teams/${teamId}/members/${userId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teams', teamId] });
+    },
+  });
+}
+
+export function useCreateMapping(teamId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      connectionId: string;
+      providerEntityType: string;
+      providerEntityId: string;
+      providerEntityName?: string;
+    }) =>
+      apiFetch(`/api/v1/teams/${teamId}/mappings`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teams', teamId, 'mappings'] });
+      qc.invalidateQueries({ queryKey: ['teams', teamId] });
+    },
+  });
+}
+
+export function useDeleteMapping(teamId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (mappingId: string) =>
+      apiFetch(`/api/v1/teams/${teamId}/mappings/${mappingId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teams', teamId, 'mappings'] });
+      qc.invalidateQueries({ queryKey: ['teams', teamId] });
+    },
+  });
+}
+
 export function useConnectionEntities(connectionId: string) {
   return useQuery({
     queryKey: ['connections', connectionId, 'entities'],
